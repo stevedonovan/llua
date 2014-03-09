@@ -166,46 +166,46 @@ static int is_indexable(lua_State *L, int idx) {
     return lua_istable(L,-1) || lua_isuserdata(L,-1);
 }
 
-err_t llua_convert(lua_State *L, char kind, void *P) {
+err_t llua_convert(lua_State *L, char kind, void *P, int idx) {
     err_t err = NULL;
     switch(kind) {
     case 'i':
-        if (! lua_isnumber(L,-1))
+        if (! lua_isnumber(L,idx))
             err = "not a number!";
         else
-            *((int*)P) =  lua_tointeger(L,-1);
+            *((int*)P) =  lua_tointeger(L,idx);
         break;
     case 'f':
-        if (! lua_isnumber(L,-1))
+        if (! lua_isnumber(L,idx))
             err = "not a number!";
         else
-            *((double*)P) = lua_tonumber(L,-1);
+            *((double*)P) = lua_tonumber(L,idx);
         break;
     case 's':
-        if (! lua_isstring(L,-1))
+        if (! lua_isstring(L,idx))
             err = "not a string!";
         else
-            *((char**)P) = (char*)lua_tostring(L,-1);
+            *((char**)P) = (char*)lua_tostring(L,idx);
         break;
     case 'o':
-        *((llua_t**)P) = llua_to_obj(L,-1);
+        *((llua_t**)P) = llua_to_obj(L,idx);
     case 'F':
-        if (! is_indexable(L,-1))
+        if (! is_indexable(L,idx))
             err = "not indexable!";
         else
-            *((double**)P) = llua_tonumarray(L,-1);
+            *((double**)P) = llua_tonumarray(L,idx);
         break;
     case 'I':
-        if (! is_indexable(L,-1))
+        if (! is_indexable(L,idx))
             err = "not indexable!";
         else
-            *((int**)P) = llua_tointarray(L,-1);
+            *((int**)P) = llua_tointarray(L,idx);
         break;
     case 'S':
-        if (! is_indexible(L,-1))
-            err = "not indexible!";
+        if (! is_indexable(L,idx))
+            err = "not indexable!";
         else
-            *((char***)P) = llua_tostrarray(L,-1);
+            *((char***)P) = llua_tostrarray(L,idx);
         break;
     default:
       break;
@@ -274,7 +274,7 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
     if (*fmt == 'r') { // return one value as object...
         if (*(fmt+1)) { // force the type!
             void *value;
-            res = llua_convert(L,*(fmt+1),&value);
+            res = llua_convert(L,*(fmt+1),&value,-1);
             lua_pop(L,1);
             if (res) // failed...
                 return (void*)res;
@@ -286,12 +286,13 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
     } else
     if (nres != LUA_MULTRET) {
         while (*fmt) {
-            res = llua_convert(L,*fmt,va_arg(ap,void*));
+            res = llua_convert(L,*fmt,va_arg(ap,void*),-nres);
             if (res) // conversion error!
                 break;
             ++fmt;
-            lua_pop(L,1);
+            --nres;
         }
+        lua_pop(L,nres);
     }
     va_end(ap);
     return (void*)res;
@@ -303,7 +304,7 @@ err_t llua_pop_vars(lua_State *L, const char *fmt,...) {
     va_list ap;
     va_start(ap,fmt);
     while (*fmt) {
-        res = llua_convert(L,*fmt,va_arg(ap,void*));
+        res = llua_convert(L,*fmt,va_arg(ap,void*),-1);
         if (res) // conversion error!
             break;
         ++fmt;
@@ -382,7 +383,7 @@ err_t llua_gets_v(llua_t *o, const char *key,...) {
                 convert = false;
         }
         if (convert)
-            err = llua_convert(L,*fmt,P);
+            err = llua_convert(L,*fmt,P,-1);
         lua_pop(L,1);
         if (err) {
             break;

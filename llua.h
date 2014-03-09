@@ -33,7 +33,7 @@ err_t llua_call(llua_t *o, int nargs, int nresults);
 double *llua_tonumarray(lua_State* L, int idx);
 int *llua_tointarray(lua_State* L, int idx);
 char** llua_tostrarray(lua_State* L, int idx);
-err_t llua_convert(lua_State *L, char kind, void *P);
+err_t llua_convert(lua_State *L, char kind, void *P, int idx);
 void *llua_callf(llua_t *o, const char *fmt,...);
 err_t llua_pop_vars(lua_State *L, const char *fmt,...);
 const char *llua_tostring(llua_t *o);

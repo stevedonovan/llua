@@ -4,4 +4,9 @@ incdirs = {LINC,"."}
 
 llua = c99.library{'llua',src='test-llua llua llib/obj llib/value',incdir=incdirs}
 
-c99.program{'test-llua', incdir=incdirs,libflags=LIB,libdir='.',llua}
+ARGS= {incdir=incdirs,libflags=LIB,libdir='.'}
+
+default {
+    c99.program{'test-llua',llua,args=ARGS},
+    c99.program{'strfind',llua,args=ARGS},
+}
