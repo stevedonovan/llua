@@ -1,0 +1,7 @@
+LINC='/me/dev/luabuild/lua-5.2.2'
+LIB='/me/dev/luabuild/bin/lua52.dll'
+incdirs = {LINC,"."}
+
+llua = c99.library{'llua',src='test-llua llua llib/obj llib/value',incdir=incdirs}
+
+c99.program{'test-llua', incdir=incdirs,libflags=LIB,libdir='.',llua}
