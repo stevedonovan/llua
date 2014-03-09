@@ -27,7 +27,7 @@ Here is how this file can be loaded into a custom environment:
         av = llua_gets(env,"gammon");
         printf("gammon was %s\n",av);
     }
-    --> gammon was pork
+    //--> gammon was pork
 
 ```
 
@@ -35,5 +35,24 @@ This example also works with both Lua 5.1 and 5.2, by hiding the
 difference in how 'environments' work with the API.
 
 llua conceals tedious and error-prone Lua stack operations when calling
-Lua functions
+Lua functions from C:
+
+```C
+    llua_t *G = llua_global(L);
+    llua_t *strfind = llua_gets(G,"string.find");
+    int i1,i2;
+
+    llua_callf(strfind,"ssi","hello dolly","doll",1,"ii",&i1,&i2);
+
+    printf("i1 %d i2 %d\n",i1,i2);
+    //--> i1 7 i2 10
+```
+
+`llua_callf` takes a callable reference (a function or something which
+has a `__call` metamethod), passes arguments specified by a type string,
+and can return a number of values. The 'type string' is akin to `printf`
+style formats: 'i' -> `int`, `f` -> `double`, `s` -> `string`, `b` ->
+`boolean` (integer value either 0 or 1).  In the above example, there
+are three arguments, two strings and a integer, and the result is two integers,
+which are returned by reference.
 
