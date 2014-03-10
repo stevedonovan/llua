@@ -38,6 +38,8 @@ void *llua_callf(llua_t *o, const char *fmt,...);
 err_t llua_pop_vars(lua_State *L, const char *fmt,...);
 const char *llua_tostring(llua_t *o);
 lua_Number llua_tonumber(llua_t *o);
+bool llua_gettable(llua_t *o);
+bool llua_settable(llua_t *o);
 void *llua_gets(llua_t *o, const char *key);
 err_t llua_gets_v(llua_t *o, const char *key,...);
 void *llua_geti(llua_t *o, int key);

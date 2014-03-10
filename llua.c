@@ -332,6 +332,34 @@ lua_Number llua_tonumber(llua_t *o) {
     return res;
 }
 
+/// can we index this object?
+static bool indexable(llua_t *o, const char *metamethod) {
+    bool res;
+    if (o->type == LUA_TTABLE) { // always cool
+        return true;
+    } else {
+        lua_State *L = llua_push(o);
+        if (! lua_getmetatable(L,-1)) { // no metatable!
+            lua_pop(L,1);
+            return false;
+        }
+        lua_getfield(L,-1,metamethod);
+        res = ! lua_isnil(L,-1);
+        lua_pop(L,2); // metatable and table
+        return res;        
+    }
+}
+
+/// can we get a field of this object?
+bool llua_gettable(llua_t *o) {
+    return indexable(o,"__index");
+}
+
+/// can we set a field of this object?
+bool llua_settable(llua_t *o) {
+    return indexable(o,"__newindex");
+}
+
 static char *splitdot(char *key) {
     char *p = strchr(key,'.');
     if (p) { // sub.key

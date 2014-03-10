@@ -14,6 +14,12 @@ int main (int argc, char **argv)
 
     printf("i1 %d i2 %d\n",i1,i2);
 
+    if (llua_gettable(strfind)) {
+        const char *s = llua_gets(strfind,"hello");
+        fprintf(stderr,"res %s\n",s);
+    } else {
+        fprintf(stderr,"cannot index this object!\n");
+    }
 
     lua_close(L);
 }

@@ -1,15 +1,20 @@
-LINC=/me/dev/luabuild/lua-5.2.2
-LUALIB=/me/dev/luabuild/bin/lua52.dll
 CC=gcc
-#c99.program{'llua',src='test-llua llua llib/obj llib/value',odir=true,incdir={LINC,"."},libflags=LIB}
-
+# Debian/Ubuntu etc
+LINC=/usr/include/lua5.1
+LUALIB=-llua5.1
 CFLAGS=-std=c99 -I$(LINC) -I.
+LINK=$(LUALIB) -L. -lllua
 
 OBJS=llua.o llib/obj.o llib/value.o
+LLUA=liblua.a
+
+all: llua test-llua strfind
 
 llua: $(OBJS)
-	ar rcu libllua.a $(OBJS) && ranlib libllua.a
+	ar rcu $(LLUA) $(OBJS) && ranlib $(LLUA)
 
-test-llua: test-llua.o
-	$(CC) test-llua.o -o test-llua $(LUALIB) -L. -lllua
+test-llua: test-llua.o $(LLUA)
+	$(CC) test-llua.o -o test-llua $(LINK)
 
+strfind: strfind.o $(LLUA)
+	$(CC) strfind.o -o strfind $(LINK)
