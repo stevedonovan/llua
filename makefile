@@ -3,8 +3,8 @@ CC=gcc
 VS=5.2
 LINC=/usr/include/lua$(VS)
 LUALIB=-llua$(VS)
-CFLAGS=-std=c99 -I$(LINC) -I.
-LINK=$(LUALIB) -L. -lllua
+CFLAGS=-std=c99 -O2 -I$(LINC) -I.
+LINK=$(LUALIB) -L. -lllua -Wl,-s
 
 OBJS=llua.o llib/obj.o llib/value.o
 LLUA=libllua.a
