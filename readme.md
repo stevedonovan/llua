@@ -1,6 +1,6 @@
 llua is a higher-level C API for Lua, organized around reference objects.
 It was inspired by [luar](http://github.com/stevedonovan/luar) and
-[LuaJava](https://github.com/jasonsantos/luajava‎) which
+[LuaJava](https://github.com/jasonsantos/luajava) which
 provide similar operations when using Lua with Go and Java. The idea
 is to encapsulate a Lua reference as an object which supports general
 operations such as indexing (setting and getting), size, pushing on
@@ -52,7 +52,9 @@ Lua functions from C:
 has a `__call` metamethod), passes arguments specified by a type string,
 and can return a number of values. The 'type string' is akin to `printf`
 style formats: 'i' -> `int`, `f` -> `double`, `s` -> `string`, `b` ->
-`boolean` (integer value either 0 or 1), 'o' -> `object`.  In the above example, there
+`boolean` (integer value either 0 or 1), 'o' -> `object` and 'x' -> `C function`.
+
+In the above example, there
 are three arguments, two strings and a integer, and the result is two integers,
 which are returned by reference.
 

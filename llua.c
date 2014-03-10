@@ -221,6 +221,9 @@ static err_t push_value(lua_State *L, char kind, void *data) {
     case 'o':
         llua_push((llua_t*)data);
         break;
+    case 'x': // usually possible to do this cast
+        lua_pushcfunction(L,(lua_CFunction)data);
+        break;
     default:
         return value_error("unknown type");
     }

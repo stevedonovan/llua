@@ -9,4 +9,5 @@ ARGS= {incdir=incdirs,libflags=LIB,libdir='.'}
 default {
     c99.program{'test-llua',llua,args=ARGS},
     c99.program{'strfind',llua,args=ARGS},
+    c99.program{'tests',llua,args=ARGS},
 }
