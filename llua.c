@@ -123,7 +123,11 @@ lua_State *llua_push(llua_t *o) {
 /// length of Lua reference, if a table or userdata.
 int llua_len(llua_t *o) {
     llua_push(o);
-    return lua_rawlen(o->L,-1);
+#if LUA_VERSION_NUM == 501
+    return lua_objlen(o->L,-1);
+#else
+    return luaL_len(o->L,-1);
+#endif
 }
 
 /// Lua table as an array of doubles.
@@ -255,7 +259,7 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
         default:
             res = push_value(L,*fmt, va_arg(ap,void*));
             if (res)
-                return res;
+                return (void*)res;
             break;
         }
         ++fmt;
@@ -337,19 +341,16 @@ lua_Number llua_tonumber(llua_t *o) {
 
 /// can we index this object?
 static bool indexable(llua_t *o, const char *metamethod) {
-    bool res;
     if (o->type == LUA_TTABLE) { // always cool
         return true;
     } else {
         lua_State *L = llua_push(o);
-        if (! lua_getmetatable(L,-1)) { // no metatable!
+        if (! luaL_getmetafield(L,-1,metamethod)) { // no metatable!
             lua_pop(L,1);
             return false;
         }
-        lua_getfield(L,-1,metamethod);
-        res = ! lua_isnil(L,-1);
-        lua_pop(L,2); // metatable and table
-        return res;        
+        lua_pop(L,2); // metamethod and table
+        return true;
     }
 }
 
