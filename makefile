@@ -1,15 +1,22 @@
 CC=gcc
 # Debian/Ubuntu etc after installing liblua5.2-dev
-VS=5.2
+VS=5.1
 LINC=/usr/include/lua$(VS)
 LUALIB=-llua$(VS)
+# release
 CFLAGS=-std=c99 -O2 -I$(LINC) -I.
 LINK=$(LUALIB) -L. -lllua -Wl,-s
+# debug
+#CFLAGS=-std=c99 -g -I$(LINC) -I.
+#LINK=$(LUALIB) -L. -lllua
 
 OBJS=llua.o llib/obj.o llib/value.o
 LLUA=libllua.a
 
 all: $(LLUA) test-llua strfind tests
+
+clean:
+	rm *.o *.a
 
 $(LLUA): $(OBJS)
 	ar rcu $(LLUA) $(OBJS) && ranlib $(LLUA)

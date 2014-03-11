@@ -60,8 +60,10 @@ which are returned by reference.
 
 llua references are llib objects; to free the reference use `unref`. In general, all
 objects returned by llua will be allocated by llib, with the exception of strings
-returned by _reference_ by `llua_callf`,`llua_gets_v`, and explictly by 
-`llua_tostring` where you get the underlying char pointer managed by Lua.
+returned by `llua_tostring` where you get the underlying
+char pointer managed by Lua.  This should be safe, since we're guaranteed
+to have a reference to the string.  Lua strings can contain nuls, so to be
+safe use `array_len(s)` rather than `strlen(s)` to determine length.
 
 `llua_callf` can return a single value, by using the special type "r". 
 Because llib objects have run-time info, the return value can always be distinguished

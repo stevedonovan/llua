@@ -59,13 +59,23 @@ void llua_setmetatable(llua_t *o, llua_t *mt) {
     lua_pop(L,1);
 }
 
+// Lua strings may have embedded nuls, so don't
+// depend on lua_tostring!
+static const char *string_copy(lua_State *L, int idx) {    
+    int sz;
+    const char *s = lua_tolstring(L,idx,&sz);
+    const char *res = str_new_size(sz);
+    memcpy(res,s,sz);
+    return res;
+}
+
 /// value on stack as a llib object, or Lua reference
 void *llua_to_obj(lua_State *L, int idx) {
     switch(lua_type(L,idx)) {
     case LUA_TNIL: return NULL;
     case LUA_TNUMBER: return value_float(lua_tonumber(L,idx));
     case LUA_TBOOLEAN: return value_bool(lua_toboolean(L,idx));
-    case LUA_TSTRING: return str_new(lua_tostring(L,idx));
+    case LUA_TSTRING: return string_copy(L,idx);
     default:
         return llua_new(L,idx);
      //LUA_TTABLE, LUA_TFUNCTION, LUA_TUSERDATA, LUA_TTHREAD, and LUA_TLIGHTUSERDATA.
@@ -91,9 +101,9 @@ llua_t *llua_newtable(lua_State *L) {
 }
 
 static err_t l_error(lua_State *L) {
-    const char *errstr = lua_tostring(L,-1);
+    const char *errstr = value_error(lua_tostring(L,-1));
     lua_pop(L,1);
-    return value_error(errstr);
+    return errstr;
 }
 
 /// load a code string and return the compiled chunk as a reference.
@@ -121,13 +131,16 @@ lua_State *llua_push(llua_t *o) {
 }
 
 /// length of Lua reference, if a table or userdata.
+// Note that we are specifically not using `lua_rawlen` here!
 int llua_len(llua_t *o) {
     llua_push(o);
 #if LUA_VERSION_NUM == 501
-    return lua_objlen(o->L,-1);
+    int n = lua_objlen(o->L,-1);
 #else
-    return luaL_len(o->L,-1);
+    int n = luaL_len(o->L,-1);
 #endif
+    lua_pop(L,1);
+    return n;
 }
 
 /// Lua table as an array of doubles.
@@ -160,7 +173,7 @@ char** llua_tostrarray(lua_State* L, int idx) {
     char** res = array_new_ref(char*,n);
     for (i = 0; i < n; i++) {
         lua_rawgeti(L,idx,i+1);
-        res[i] = str_new(lua_tostring(L,-1));
+        res[i] = string_copy(L,-1);
         lua_pop(L,1);
     }
     return res;
@@ -189,7 +202,7 @@ err_t llua_convert(lua_State *L, char kind, void *P, int idx) {
         if (! lua_isstring(L,idx))
             err = "not a string!";
         else
-            *((char**)P) = (char*)lua_tostring(L,idx);
+            *((char**)P) = string_copy(L,idx);
         break;
     case 'o':
         *((llua_t**)P) = llua_to_obj(L,idx);

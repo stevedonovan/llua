@@ -1,10 +1,17 @@
-LINC='/me/dev/luabuild/lua-5.2.2'
-LIB='/me/dev/luabuild/bin/lua52.dll'
-incdirs = {LINC,"."}
+if WINDOWS then
+    LINC='/me/dev/luabuild/lua-5.2.2'
+    LIB='/me/dev/luabuild/bin/lua52.dll'
+    incdirs = {LINC,"."}
+    needs  = nil
+else
+    incdirs = "."
+    needs = 'lua'
+    LIB='-llua5.1'
+end
 
-llua = c99.library{'llua',src='test-llua llua llib/obj llib/value',incdir=incdirs}
+llua = c99.library{'llua',src='test-llua llua llib/obj llib/value',incdir=incdirs,needs=needs}
 
-ARGS= {incdir=incdirs,libflags=LIB,libdir='.'}
+ARGS= {incdir=incdirs,libflags=LIB,libdir='.',needs=needs}
 
 default {
     c99.program{'test-llua',llua,args=ARGS},
