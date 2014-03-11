@@ -9,7 +9,7 @@ else
     LIB='-llua5.1'
 end
 
-llua = c99.library{'llua',src='test-llua llua llib/obj llib/value',incdir=incdirs,needs=needs}
+llua = c99.library{'llua',src='test-llua llua llib/obj llib/value llib/pool',incdir=incdirs,needs=needs}
 
 ARGS= {incdir=incdirs,libflags=LIB,libdir='.',needs=needs}
 

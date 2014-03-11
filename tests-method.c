@@ -16,7 +16,11 @@ int main (int argc, char **argv)
         fprintf(stderr,"error %s\n",res);
     }
 
+#ifdef _WIN32
     const char *file = "tests-method.exe";
+#else
+    const char *file = "tests-method";
+#endif
     if (argv[1])
         file = argv[1];
     llua open = llua_gets(G,"io.open");

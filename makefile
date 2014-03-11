@@ -10,7 +10,7 @@ LINK=$(LUALIB) -L. -lllua -Wl,-s
 #CFLAGS=-std=c99 -g -I$(LINC) -I.
 #LINK=$(LUALIB) -L. -lllua
 
-OBJS=llua.o llib/obj.o llib/value.o
+OBJS=llua.o llib/obj.o llib/value.o llib/pool.o
 LLUA=libllua.a
 
 all: $(LLUA) test-llua strfind tests
