@@ -65,7 +65,7 @@ char pointer managed by Lua.  This should be safe, since we're guaranteed
 to have a reference to the string.  Lua strings can contain nuls, so to be
 safe use `array_len(s)` rather than `strlen(s)` to determine length.
 
-`llua_callf` can return a single value, by using the special type "r". 
+`llua_callf` can return a single value, by using the special type "r".
 Because llib objects have run-time info, the return value can always be distinguished
 from an error, which is llib's solution to C's single-value-return problem.
 
@@ -78,12 +78,22 @@ from an error, which is llib's solution to C's single-value-return problem.
     }
 ```
 
+As a special case, `llua_callf` can call methods. The pseudo-type 'm' means
+"call the named method of the given object":
+
+
+```C
+    llua_t *out = llua_gets(G,"io.stdout");
+    llua_callf(out,"ms","write","hello dolly!\n","");
+
+```
+
 We've already seen `llua_gets` for indexing tables and userdata; it will return
-an object as above; numbers will be returned as llib boxed values, which is not so 
+an object as above; numbers will be returned as llib boxed values, which is not so
 very convenient.  `llua_gets_v` allows multiple key lookups with type specified as
 with `llua_callf`.
 
-```C       
+```C
     char *av, *bv;
     int cv;
     double dv = 23.5;
@@ -102,29 +112,29 @@ with `llua_callf`.
 
 Note the special '?' which allows the existing value to pass through unchanged
 if the key does not exist.  If there was no default, then the returned error will
-be non-NULL. 
+be non-NULL.
 
-There is also `llua_geti` and `llua_rawgeti`, which also return objects. 
+There is also `llua_geti` and `llua_rawgeti`, which also return objects.
 
 ```C
     llua_t *res = llua_eval(L,"return {10,20,30}","r");
     void *obj = llua_geti(res,1);  // always returns an object
     if (value_is_float(obj))   // paranoid!
         printf("value was %f\n",value_as_float(obj)); // unbox
-        
+
      // or we can convert the table to an array of ints
     llua_push(res);
     int *arr = llua_tointarray(L,-1);
     int i;
     for (i = 0; i < array_len(arr); i++)
-        printf("%d\n",arr[i]);       
+        printf("%d\n",arr[i]);
 ```
 
 There are three table-to-array functions, `llua_tointarray`, `llua_tonumarray` and
 `llua_tostrarray` which return llib arrays. Again, using llib means that these
 arrays know how long they are!
 
-A particularly intense one-liner implicitly uses this table-to-int-array conversion: 
+A particularly intense one-liner implicitly uses this table-to-int-array conversion:
 you may force the return type with a type specifier after 'r'.
 
 ```

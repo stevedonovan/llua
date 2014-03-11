@@ -61,10 +61,10 @@ void llua_setmetatable(llua_t *o, llua_t *mt) {
 
 // Lua strings may have embedded nuls, so don't
 // depend on lua_tostring!
-static const char *string_copy(lua_State *L, int idx) {    
-    int sz;
+static char *string_copy(lua_State *L, int idx) {
+    size_t sz;
     const char *s = lua_tolstring(L,idx,&sz);
-    const char *res = str_new_size(sz);
+    char *res = str_new_size(sz);
     memcpy(res,s,sz);
     return res;
 }
@@ -139,7 +139,7 @@ int llua_len(llua_t *o) {
 #else
     int n = luaL_len(o->L,-1);
 #endif
-    lua_pop(L,1);
+    lua_pop(o->L,1);
     return n;
 }
 
@@ -255,8 +255,15 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
     err_t res = NULL;
     va_list ap;
     va_start(ap,fmt);
-    // right - push the function!
-    llua_push(o);
+    llua_push(o); // push the function or object
+    if (*fmt == 'm') { // method call!
+        const char *name = va_arg(ap,char*);
+        lua_getfield(L,-1,name);
+        // method at top, then self
+        lua_insert(L,-2);
+        ++fmt;
+        ++nargs;
+    }
     // and push the arguments...
     while (*fmt) {
         switch(*fmt) {
