@@ -209,6 +209,10 @@ err_t llua_convert(lua_State *L, char kind, void *P, int idx) {
         break;
     case 'o':
         *((llua_t**)P) = llua_to_obj(L,idx);
+        break;
+    case 'L':
+        *((llua_t**)P) = llua_new(L,idx);
+        break;
     case 'F':
         if (! is_indexable(L,idx))
             err = "not indexable!";

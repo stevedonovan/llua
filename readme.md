@@ -65,6 +65,11 @@ char pointer managed by Lua.  This should be safe, since we're guaranteed
 to have a reference to the string.  Lua strings can contain nuls, so to be
 safe use `array_len(s)` rather than `strlen(s)` to determine length.
 
+For accessing a large Lua string without wanting a copy, the special type
+specifier 'L' will force all Lua values (including strings) to be reference
+objects. Once you have the string reference, `llua_tostring` gives you
+the managed pointer.
+
 `llua_callf` can return a single value, by using the special type "r".
 Because llib objects have run-time info, the return value can always be distinguished
 from an error, which is llib's solution to C's single-value-return problem.
