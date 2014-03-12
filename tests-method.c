@@ -9,6 +9,7 @@ int main (int argc, char **argv)
     typedef llua_t *llua;
 
     llua G = llua_global(L);
+    printf("end %d\n",lua_gettop(L));
     llua out = llua_gets(G,"io.stdout");
 
     err_t res = llua_callf(out,"ms","write","hello dolly!\n","");
@@ -25,6 +26,7 @@ int main (int argc, char **argv)
         file = argv[1];
     llua open = llua_gets(G,"io.open");
     llua in = llua_callf(open,"ss",file,"rb","r");
+
     char* text = llua_callf(in,"ms","read","*a","r");
     llua_callf(in,"m","close","");
     printf("size was %d\n",array_len(text));

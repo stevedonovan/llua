@@ -96,8 +96,11 @@ const char *llua_typename(llua_t *o) {
 
 /// a reference to a new Lua table.
 llua_t *llua_newtable(lua_State *L) {
+    llua_t *ref;
     lua_newtable(L);
-    return llua_new(L,-1);
+    ref = llua_new(L,-1);
+    lua_pop(L,1);
+    return ref;
 }
 
 static err_t l_error(lua_State *L) {
@@ -312,12 +315,13 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
         }
     } else
     if (nres != LUA_MULTRET) {
+        int idx = -nres;
         while (*fmt) {
-            res = llua_convert(L,*fmt,va_arg(ap,void*),-nres);
+            res = llua_convert(L,*fmt,va_arg(ap,void*),idx);
             if (res) // conversion error!
                 break;
             ++fmt;
-            --nres;
+            --idx;
         }
         lua_pop(L,nres);
     }
@@ -395,7 +399,8 @@ static char *splitdot(char *key) {
 
 #define MAX_KEY 256
 
-// assume the table is on top of the stack...
+// assume the table is initially on top of the stack...
+// leaves final value on top
 static void safe_gets(lua_State *L, const char *key) {
     char ckey[MAX_KEY], *subkey;
     strcpy(ckey,key);
@@ -404,6 +409,7 @@ static void safe_gets(lua_State *L, const char *key) {
     if (subkey) {
         if (! lua_isnil(L,-1)) {
             lua_getfield(L,-1,subkey);
+            lua_remove(L,-2);
         }
     }
 }
@@ -412,6 +418,7 @@ static void safe_gets(lua_State *L, const char *key) {
 void *llua_gets(llua_t *o, const char *key) {
     lua_State *L = llua_push(o);
     safe_gets(L,key);
+    lua_remove(L,-2);
     return llua_to_obj_pop(L,-1);
 }
 
@@ -443,6 +450,7 @@ err_t llua_gets_v(llua_t *o, const char *key,...) {
         key = va_arg(ap,const char*);
     }
     va_end(ap);
+    lua_pop(L,1); // the reference
     return err;
 }
 
@@ -451,6 +459,7 @@ void *llua_geti(llua_t *o, int key) {
     lua_State *L = llua_push(o);
     lua_pushinteger(L,key);
     lua_gettable(L,-2);
+    lua_remove(L,-2); // the reference
     return llua_to_obj_pop(L,-1);
 }
 
@@ -458,6 +467,7 @@ void *llua_geti(llua_t *o, int key) {
 void *llua_rawgeti(llua_t* o, int key) {
     lua_State *L = llua_push(o);
     lua_rawgeti(L,-1,key);
+    lua_remove(L,-2); // the reference
     return llua_to_obj_pop(L,-1);
 }
 
@@ -532,6 +542,7 @@ err_t llua_sets_v(llua_t *o, const char *key,...) {
         key = va_arg(ap,const char*);
     }
     va_end(ap);
+    lua_pop(L,1); // the reference
     return err;
 }
 

@@ -45,6 +45,7 @@ int main (int argc, char **argv)
     int i;
     for (i = 0; i < array_len(arr); i++)
         printf("%d\n",arr[i]);
+    lua_pop(L,1);
 
     // Take 2. Compile & run, and return explicitly as int array
     arr = llua_eval(L,code,"rI");
@@ -75,6 +76,7 @@ int main (int argc, char **argv)
     printf("got a='%s' b='%s' c=%d d=%f\n",av,bv,cv,dv);
 
     res = llua_newtable(L);
+
     // two ways to set values: first uses _dynamic_ type of
     // value
     //llua_sets(res,"one","hello");
@@ -96,6 +98,8 @@ int main (int argc, char **argv)
         av = llua_gets(env,"gammon");
         printf("gammon was %s\n",av);
     }
+
+
     lua_close(L);
     return 0;
 }
