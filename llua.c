@@ -10,7 +10,12 @@
 #define lua_rawlen lua_objlen
 #endif
 
+static FILE *s_verbose = false;
+
 static void llua_Dispose(llua_t *o) {
+    if (s_verbose) {
+        fprintf(s_verbose,"free L %p ref %d type %s\n",o->L,o->ref,llua_typename(o));
+    }
     luaL_unref(o->L,LUA_REGISTRYINDEX,o->ref);
 }
 
@@ -22,6 +27,11 @@ llua_t *llua_new(lua_State *L, int idx) {
     res->ref = luaL_ref(L,LUA_REGISTRYINDEX);
     res->type = lua_type(L,idx);
     return res;
+}
+
+/// report whenever a Lua reference is freed
+void llua_verbose(FILE *f) {
+    s_verbose = f;
 }
 
 /// is this a Lua reference?

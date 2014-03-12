@@ -1,7 +1,7 @@
 #ifdef LLUA_H
 #define LLUA_H
 #else
-
+#include <stdio.h>
 #include <llib/obj.h>
 #include <llib/value.h>
 #include <lua.h>
@@ -17,6 +17,7 @@ typedef struct LLua_ {
 } llua_t;
 
 llua_t *llua_new(lua_State *L, int idx);
+void llua_verbose(FILE *f);
 bool llua_is_lua_object(llua_t *o);
 llua_t* llua_global(lua_State *L);
 void *llua_to_obj(lua_State *L, int idx);
