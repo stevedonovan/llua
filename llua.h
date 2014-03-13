@@ -16,6 +16,20 @@ typedef struct LLua_ {
     int type;
 } llua_t;
 
+// useful names for common function returns
+#define L_VAL "r"
+#define L_REF "rL"
+#define L_ERR "rE"
+#define L_NONE ""
+
+// the FOR_TABLE construct
+#define L_TKEY (-2)
+#define L_TVAL (-1)
+#define FOR_TABLE(t) \
+ for (lua_State *_L=_llua_push_nil(t);lua_next(_L,-2) != 0;lua_pop(_L,1))
+#define llua_table_break(t) {lua_pop(_L,1);break;}
+
+
 llua_t *llua_new(lua_State *L, int idx);
 void llua_verbose(FILE *f);
 bool llua_is_lua_object(llua_t *o);
@@ -29,6 +43,7 @@ llua_t *llua_newtable(lua_State *L);
 llua_t *llua_load(lua_State *L, const char *code, const char *name);
 llua_t *llua_loadfile(lua_State *L, const char *filename);
 lua_State *llua_push(llua_t *o);
+lua_State *_llua_push_nil(llua_t *o);
 int llua_len(llua_t *o);
 err_t llua_call(llua_t *o, int nargs, int nresults);
 double *llua_tonumarray(lua_State* L, int idx);

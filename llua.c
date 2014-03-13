@@ -143,6 +143,13 @@ lua_State *llua_push(llua_t *o) {
     return o->L;
 }
 
+lua_State *_llua_push_nil(llua_t *o) {
+    lua_State *L = llua_push(o);
+    lua_pushnil(L);
+    return L;
+}
+
+
 /// length of Lua reference, if a table or userdata.
 // Note that we are specifically not using `lua_rawlen` here!
 int llua_len(llua_t *o) {
@@ -270,6 +277,7 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
     lua_State *L = o->L;
     int nargs = 0, nres = LUA_MULTRET, nerr;
     err_t res = NULL;
+    char rtype;
     va_list ap;
     va_start(ap,fmt);
     llua_push(o); // push the function or object
@@ -286,6 +294,9 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
         switch(*fmt) {
         case 'i':
             lua_pushinteger(L, va_arg(ap,int));
+            break;
+        case 'v':
+            lua_pushvalue(L,va_arg(ap,int) - nargs - 1);
             break;
         case 'b':
             lua_pushboolean(L, va_arg(ap,int));
@@ -305,8 +316,9 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
     fmt = va_arg(ap,char*);
     if (fmt) {
         nres = strlen(fmt);
-        if (*fmt == 'r' && *(fmt+1)) // single return with explicit type
-            --nres;
+        rtype = *(fmt+1);
+        if (*fmt == 'r' && rtype && rtype != 'E') // single return with explicit type
+            nres = 1;
     }
     nerr = lua_pcall(L,nargs,nres,0);
     if (nerr != LUA_OK) {
@@ -316,9 +328,19 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
         return (void*)res;
     } else
     if (*fmt == 'r') { // return one value as object...
-        if (*(fmt+1)) { // force the type!
+        if (rtype == 'E') {
+            // Lua error return convention is object
+            // or nil,error-string
+            void *val = llua_to_obj(L,-2);
+            void *err = llua_to_obj(L,-1);
+            if (! val)
+                val = value_error(err);
+            lua_pop(L,2);
+            return val;
+        } else
+        if (rtype) { // force the type!
             void *value;
-            res = llua_convert(L,*(fmt+1),&value,-1);
+            res = llua_convert(L,rtype,&value,-1);
             lua_pop(L,1);
             if (res) // failed...
                 return (void*)res;
@@ -335,7 +357,7 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
             if (res) // conversion error!
                 break;
             ++fmt;
-            --idx;
+            ++idx;
         }
         lua_pop(L,nres);
     }

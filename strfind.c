@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "llua.h"
+#include <llua.h>
 
 int main (int argc, char **argv)
 {
@@ -14,6 +14,13 @@ int main (int argc, char **argv)
     llua_callf(strfind,"ssi","hello dolly","doll",1,"ii",&i1,&i2);
 
     printf("i1 %d i2 %d\n",i1,i2);
+
+    // global keys beginning with 's'.
+    // note 'v' for 'push value at index'
+    FOR_TABLE(G) {
+        if (llua_callf(strfind,"vs",L_TKEY,"^s",L_VAL))
+            printf("match %s\n",lua_tostring(L,L_TKEY));
+    }
 
     lua_close(L);
 }
