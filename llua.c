@@ -48,6 +48,7 @@ llua_t* llua_global(lua_State *L) {
     return res;
 }
 
+/// get the metatable of `o`
 llua_t *llua_getmetatable(llua_t *o) {
     lua_State *L = llua_push(o);
     if (! lua_getmetatable(L,-1)) {
@@ -59,6 +60,7 @@ llua_t *llua_getmetatable(llua_t *o) {
     }
 }
 
+/// set the metatable of `o`
 void llua_setmetatable(llua_t *o, llua_t *mt) {
     lua_State *L = llua_push(o);
     if (mt)

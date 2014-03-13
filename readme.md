@@ -1,3 +1,5 @@
+## Rationale
+
 llua is a higher-level C API for Lua, organized around reference objects.
 It was inspired by [luar](http://github.com/stevedonovan/luar) and
 [LuaJava](https://github.com/jasonsantos/luajava) which
@@ -34,6 +36,35 @@ Here is how this file can be loaded into a custom environment:
 This example also works with both Lua 5.1 and 5.2, by hiding the
 difference in how 'environments' work with the API.
 
+## References, Objects and Strings
+
+llua references are llib objects; to free the reference use `unref`. If given
+an arbitrary object, `llua_is_lua_object(obj)` will be true if a Lua reference.
+
+ `llua_t` has the Lua state `L`, the reference
+as `ref` (which is index into registry) and `type`.
+
+
+`llua_new(L,idx)` will wrap a value on the stack as a reference; `llua_newtable(L)`
+will make a reference to a new table, and `llua_global(L)` is the global state.
+These operations don't effect the stack; `llua_push(o)` will make the reference
+available on the stack.
+
+In general, all
+objects returned by llua will be allocated by llib, with the exception of strings
+returned by `llua_tostring` where you get the underlying
+char pointer managed by Lua.  This should be safe, since we're guaranteed
+to have a reference to the string.  Lua strings can contain nuls, so to be
+safe use `array_len(s)` rather than `strlen(s)` to determine length.
+
+For accessing a large Lua string without wanting a copy, the special type
+specifier 'L' will force all Lua values (including strings) to be reference
+objects. Once you have the string reference, `llua_tostring` gives you
+the managed pointer and `llua_len` gives you its actual length.
+
+
+## Calling Lua Functions
+
 llua conceals tedious and error-prone Lua stack operations when calling
 Lua functions from C:
 
@@ -52,23 +83,13 @@ Lua functions from C:
 has a `__call` metamethod), passes arguments specified by a type string,
 and can return a number of values. The 'type string' is akin to `printf`
 style formats: 'i' -> `int`, `f` -> `double`, `s` -> `string`, `b` ->
-`boolean` (integer value either 0 or 1), 'o' -> `object` and 'x' -> `C function`.
+`boolean` (integer value either 0 or 1), 'o' -> `object`, 'v' -> "value on stack",
+and 'x' -> `C function`.
 
 In the above example, there
 are three arguments, two strings and a integer, and the result is two integers,
 which are returned by reference.
 
-llua references are llib objects; to free the reference use `unref`. In general, all
-objects returned by llua will be allocated by llib, with the exception of strings
-returned by `llua_tostring` where you get the underlying
-char pointer managed by Lua.  This should be safe, since we're guaranteed
-to have a reference to the string.  Lua strings can contain nuls, so to be
-safe use `array_len(s)` rather than `strlen(s)` to determine length.
-
-For accessing a large Lua string without wanting a copy, the special type
-specifier 'L' will force all Lua values (including strings) to be reference
-objects. Once you have the string reference, `llua_tostring` gives you
-the managed pointer.
 
 `llua_callf` can return a single value, by using the special type "r".
 Because llib objects have run-time info, the return value can always be distinguished
@@ -81,8 +102,10 @@ from an error, which is llib's solution to C's single-value-return problem.
     } else {
         // ok!
     }
+
 ```
 
+Since this little "r" can be hard to see in code, it's given a name L_VAL.
 As a special case, `llua_callf` can call methods. The pseudo-type 'm' means
 "call the named method of the given object":
 
@@ -92,6 +115,8 @@ As a special case, `llua_callf` can call methods. The pseudo-type 'm' means
     llua_callf(out,"ms","write","hello dolly!\n","");
 
 ```
+
+## Accessing Lua Tables
 
 We've already seen `llua_gets` for indexing tables and userdata; it will return
 an object as above; numbers will be returned as llib boxed values, which is not so
@@ -148,3 +173,18 @@ you may force the return type with a type specifier after 'r'.
 
 Trying to index a non-indexable object will cause a Lua panic, so `llua_gettable` and
 `llua_settable` are defined so you can program defensively.
+
+Iterating over a table is fairly straightforward using the usual API but I usually
+have to look it up each time.  So llua provides a `FOR_TABLE` macro:
+
+
+```C
+    FOR_TABLE(G) { // all table keys matching "^s"
+        if (llua_callf(strfind,"vs",L_TKEY,"^s",L_VAL))
+            printf("match %s\n",lua_tostring(L,L_TKEY));
+    }
+```
+
+Like the explicit version, this requires stack discipline!  L_TKEY is (-2) and
+L_TVAL is (-1).  If you do need to break out of this loop, use the `llua_table_break`
+macro which does the necessary key-popping.
