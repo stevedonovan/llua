@@ -29,6 +29,11 @@ typedef struct LLua_ {
  for (lua_State *_L=_llua_push_nil(t);lua_next(_L,-2) != 0;lua_pop(_L,1))
 #define llua_table_break(t) {lua_pop(_L,1);break;}
 
+#define llua_assert(L,val) _llua_assert(L,__FILE__,__LINE__,val)
+
+void *_llua_assert(lua_State *L, const char *file, int line, void *val);
+
+#define llua_call_or_die(r,...) llua_assert((r)->L,llua_callf(r,__VA_ARGS__))
 
 llua_t *llua_new(lua_State *L, int idx);
 void llua_verbose(FILE *f);
@@ -40,6 +45,7 @@ llua_t *llua_getmetatable(llua_t *o);
 void llua_setmetatable(llua_t *o, llua_t *mt);
 const char *llua_typename(llua_t *o);
 llua_t *llua_newtable(lua_State *L);
+llua_t *llua_cfunction(lua_State *L, lua_CFunction f);
 llua_t *llua_load(lua_State *L, const char *code, const char *name);
 llua_t *llua_loadfile(lua_State *L, const char *filename);
 lua_State *llua_push(llua_t *o);
@@ -56,6 +62,7 @@ const char *llua_tostring(llua_t *o);
 lua_Number llua_tonumber(llua_t *o);
 bool llua_gettable(llua_t *o);
 bool llua_settable(llua_t *o);
+bool llua_callable(llua_t *o);
 void *llua_gets(llua_t *o, const char *key);
 err_t llua_gets_v(llua_t *o, const char *key,...);
 void *llua_geti(llua_t *o, int key);

@@ -1,4 +1,16 @@
-// @build=lake.bat -g
+/*
+* llua higher-level C Lua API
+* BSD licence
+* Copyright Steve Donovan, 2014
+*/
+
+/***
+llua provides a higher-level way to integrate Lua into C projects,
+by defining reference objects and providing operations like calling,
+accessing, etc on them.  Most explicit manipulation of the Lua
+stack becomes unnecessary.
+*/
+
 #include <stdio.h>
 #include <string.h>
 
@@ -12,6 +24,27 @@
 
 static FILE *s_verbose = false;
 
+/// raise an error when the argument is an error.
+// @function llua_assert
+
+void *_llua_assert(lua_State *L, const char *file, int line, void *val) {
+    if (! value_is_error(val))
+        return val;
+    else
+        return luaL_error(L,"%s:%d: %s",file,line,value_as_string(val));
+}
+
+/// report whenever a Lua reference is freed
+void llua_verbose(FILE *f) {
+    s_verbose = f;
+}
+
+/// is this a Lua reference?
+// @within Properties
+bool llua_is_lua_object(llua_t *o) {
+    return obj_is_instance(o,"llua_t");
+}
+
 static void llua_Dispose(llua_t *o) {
     if (s_verbose) {
         fprintf(s_verbose,"free L %p ref %d type %s\n",o->L,o->ref,llua_typename(o));
@@ -19,7 +52,8 @@ static void llua_Dispose(llua_t *o) {
     luaL_unref(o->L,LUA_REGISTRYINDEX,o->ref);
 }
 
-/// new Lua reference to value on stack
+/// new Lua reference to value on stack.
+// @within Creating
 llua_t *llua_new(lua_State *L, int idx) {
     llua_t *res = obj_new(llua_t,llua_Dispose);
     res->L = L;
@@ -29,17 +63,8 @@ llua_t *llua_new(lua_State *L, int idx) {
     return res;
 }
 
-/// report whenever a Lua reference is freed
-void llua_verbose(FILE *f) {
-    s_verbose = f;
-}
-
-/// is this a Lua reference?
-bool llua_is_lua_object(llua_t *o) {
-    return obj_is_instance(o,"llua_t");
-}
-
 /// get the global state as a reference.
+// @within Creating
 llua_t* llua_global(lua_State *L) {
     llua_t *res;
     lua_getglobal(L,"_G");
@@ -49,6 +74,7 @@ llua_t* llua_global(lua_State *L) {
 }
 
 /// get the metatable of `o`
+// @within Properties
 llua_t *llua_getmetatable(llua_t *o) {
     lua_State *L = llua_push(o);
     if (! lua_getmetatable(L,-1)) {
@@ -81,7 +107,10 @@ static char *string_copy(lua_State *L, int idx) {
     return res;
 }
 
-/// value on stack as a llib object, or Lua reference
+/// value on stack as a llib object, or Lua reference.
+// Result can be NULL, a string, a llib boxed value,
+// or a `llua_t` reference.
+// @within Converting
 void *llua_to_obj(lua_State *L, int idx) {
     switch(lua_type(L,idx)) {
     case LUA_TNIL: return NULL;
@@ -95,6 +124,7 @@ void *llua_to_obj(lua_State *L, int idx) {
 }
 
 /// convenient way to call `llua_to_obj` which pops the stack.
+// @within Converting
 void *llua_to_obj_pop(lua_State *L, int idx) {
     void *res = llua_to_obj(L,idx);
     lua_pop(L,1);
@@ -102,14 +132,26 @@ void *llua_to_obj_pop(lua_State *L, int idx) {
 }
 
 /// type name of the reference.
+// @within Properties
 const char *llua_typename(llua_t *o) {
     return lua_typename(o->L,o->type);
 }
 
 /// a reference to a new Lua table.
+// @within Creating
 llua_t *llua_newtable(lua_State *L) {
     llua_t *ref;
     lua_newtable(L);
+    ref = llua_new(L,-1);
+    lua_pop(L,1);
+    return ref;
+}
+
+/// a reference to a C function.
+// @within Creating
+llua_t *llua_cfunction(lua_State *L, lua_CFunction f) {
+    llua_t *ref;
+    lua_pushcfunction(L,f);
     ref = llua_new(L,-1);
     lua_pop(L,1);
     return ref;
@@ -122,6 +164,7 @@ static err_t l_error(lua_State *L) {
 }
 
 /// load a code string and return the compiled chunk as a reference.
+// @within LoadingAndEvaluating
 llua_t *llua_load(lua_State *L, const char *code, const char *name) {
     int res = luaL_loadbuffer(L,code,strlen(code),name);
     if (res != LUA_OK) {
@@ -131,6 +174,7 @@ llua_t *llua_load(lua_State *L, const char *code, const char *name) {
 }
 
 /// load a file and return the compiled chunk as a reference.
+// @within LoadingAndEvaluating
 llua_t *llua_loadfile(lua_State *L, const char *filename) {
     int res = luaL_loadfile(L,filename);
     if (res != LUA_OK) {
@@ -151,9 +195,9 @@ lua_State *_llua_push_nil(llua_t *o) {
     return L;
 }
 
-
 /// length of Lua reference, if a table or userdata.
 // Note that we are specifically not using `lua_rawlen` here!
+// @within Properties
 int llua_len(llua_t *o) {
     llua_push(o);
 #if LUA_VERSION_NUM == 501
@@ -166,6 +210,7 @@ int llua_len(llua_t *o) {
 }
 
 /// Lua table as an array of doubles.
+// @within Converting
 double *llua_tonumarray(lua_State* L, int idx) {
     int i,n = lua_rawlen(L,idx);
     double *res = array_new(double,n);
@@ -178,6 +223,7 @@ double *llua_tonumarray(lua_State* L, int idx) {
 }
 
 /// Lua table as an array of ints.
+// @within Converting
 int *llua_tointarray(lua_State* L, int idx) {
     int i,n = lua_rawlen(L,idx);
     int *res = array_new(int,n);
@@ -190,6 +236,7 @@ int *llua_tointarray(lua_State* L, int idx) {
 }
 
 /// Lua table as an array of strings.
+// @within Converting
 char** llua_tostrarray(lua_State* L, int idx) {
     int i,n = lua_rawlen(L,idx);
     char** res = array_new_ref(char*,n);
@@ -205,14 +252,25 @@ static int is_indexable(lua_State *L, int idx) {
     return lua_istable(L,-1) || lua_isuserdata(L,-1);
 }
 
+/// Read a value on the stack into a variable.
+// `kind` is a  _type specifier_
+//
+//  * 'i' integer
+//  * 'b' boolean
+//  * 'f' double
+//  * 's' string
+//  * 'o' object (as in `llua_to_obj`)
+//  * 'L' llua reference
+//  * 'I' array of integers
+//  * 'F' array of doubles
+//  * 'S' array of strings
+//
+// @within Converting
 err_t llua_convert(lua_State *L, char kind, void *P, int idx) {
     err_t err = NULL;
     switch(kind) {
-    case 'i':
-        if (! lua_isnumber(L,idx))
-            err = "not a number!";
-        else
-            *((int*)P) =  lua_tointeger(L,idx);
+    case 'i': // this is a tolerant operation; returns 0 if wrong type
+        *((int*)P) =  lua_tointeger(L,idx);
         break;
     case 'f':
         if (! lua_isnumber(L,idx))
@@ -234,7 +292,7 @@ err_t llua_convert(lua_State *L, char kind, void *P, int idx) {
         break;
     case 'F':
         if (! is_indexable(L,idx))
-            err = "not indexable!";
+            err = "not indexable!*";
         else
             *((double**)P) = llua_tonumarray(L,idx);
         break;
@@ -274,7 +332,24 @@ static err_t push_value(lua_State *L, char kind, void *data) {
 }
 
 /// call the reference, passing a number of arguments.
-// May optionally capture multiple return values.
+// These are specified by a set of _type specifiers_ `fmt`. Apart
+// from the usual ones, we have 'm' (which must be first) which
+// means "call the method by name" where `o` must be an object,
+// 'v' which means "push the value at the index", and 'x' which
+// means "C function".
+//
+// May optionally capture multiple return values with `llua_convert`.
+// There are some common cases that have symbolic names:
+//
+//  * `L_NONE` call doesn't return anything
+//  * `L_VAL`  we return a single value
+//  * `L_REF`  we always return result as a llua reference
+//  * `L_ERR`  Lua error convention, either <value> or <nil> <error-string>
+//
+// @within Calling
+// @usage llua_callf(strfind,"ss",str,";$","i",&i);
+// @usage llua_callf(open,"s","test.txt",L_ERR)
+// @usage llua_callf(file,"ms","write","hello there\n",L_NONE);
 void *llua_callf(llua_t *o, const char *fmt,...) {
     lua_State *L = o->L;
     int nargs = 0, nres = LUA_MULTRET, nerr;
@@ -367,7 +442,14 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
     return (void*)res;
 }
 
+/// call a function, raising an error.
+// A useful combination of `llua_callf` and `llua_assert`
+// @function llua_call_or_die
+// @within Calling
+
 /// pop some values off the Lua stack.
+// Uses `llua_convert`
+// @within Converting
 err_t llua_pop_vars(lua_State *L, const char *fmt,...) {
     err_t res = NULL;
     va_list ap;
@@ -384,6 +466,7 @@ err_t llua_pop_vars(lua_State *L, const char *fmt,...) {
 }
 
 /// this returns the _original_ raw C string.
+// @within Properties
 const char *llua_tostring(llua_t *o) {
     const char *res;
     llua_push(o);
@@ -393,6 +476,7 @@ const char *llua_tostring(llua_t *o) {
 }
 
 /// the Lua reference as a number.
+// @within Properties
 lua_Number llua_tonumber(llua_t *o) {
     lua_Number res;
     llua_push(o);
@@ -401,9 +485,9 @@ lua_Number llua_tonumber(llua_t *o) {
     return res;
 }
 
-/// can we index this object?
-static bool indexable(llua_t *o, const char *metamethod) {
-    if (o->type == LUA_TTABLE) { // always cool
+// can we index this object?
+static bool accessible(llua_t *o, int ltype, const char *metamethod) {
+    if (o->type == ltype) { // always cool
         return true;
     } else {
         lua_State *L = llua_push(o);
@@ -417,13 +501,21 @@ static bool indexable(llua_t *o, const char *metamethod) {
 }
 
 /// can we get a field of this object?
+// @within Properties
 bool llua_gettable(llua_t *o) {
-    return indexable(o,"__index");
+    return accessible(o,LUA_TTABLE,"__index");
 }
 
 /// can we set a field of this object?
+// @within Properties
 bool llua_settable(llua_t *o) {
-    return indexable(o,"__newindex");
+    return accessible(o,LUA_TTABLE,"__newindex");
+}
+
+/// can we call this object?
+// @within Properties
+bool llua_callable(llua_t *o) {
+    return accessible(o,LUA_TFUNCTION,"__call");
 }
 
 static char *splitdot(char *key) {
@@ -437,7 +529,7 @@ static char *splitdot(char *key) {
 
 #define MAX_KEY 256
 
-// assume the table is initially on top of the stack...
+// assume the table is initially on top of the stack.
 // leaves final value on top
 static void safe_gets(lua_State *L, const char *key) {
     char ckey[MAX_KEY], *subkey;
@@ -453,6 +545,8 @@ static void safe_gets(lua_State *L, const char *key) {
 }
 
 /// index the reference with a string key, returning an object.
+// 'object' defined as with `llua_to_obj`
+// @within GettingAndSetting
 void *llua_gets(llua_t *o, const char *key) {
     lua_State *L = llua_push(o);
     safe_gets(L,key);
@@ -461,6 +555,9 @@ void *llua_gets(llua_t *o, const char *key) {
 }
 
 /// index the reference with multiple string keys and type-specifiers.
+// Type specifiers are as with `llua_convert`
+// @within GettingAndSetting
+// @usage llua_gets_v(T,"key1","s",&str,NULL);
 err_t llua_gets_v(llua_t *o, const char *key,...) {
     lua_State *L = llua_push(o);
     const char *fmt;
@@ -493,6 +590,7 @@ err_t llua_gets_v(llua_t *o, const char *key,...) {
 }
 
 /// index the reference with an integer key.
+// @within GettingAndSetting
 void *llua_geti(llua_t *o, int key) {
     lua_State *L = llua_push(o);
     lua_pushinteger(L,key);
@@ -502,6 +600,7 @@ void *llua_geti(llua_t *o, int key) {
 }
 
 /// raw indexing with an integer key.
+// @within GettingAndSetting
 void *llua_rawgeti(llua_t* o, int key) {
     lua_State *L = llua_push(o);
     lua_rawgeti(L,-1,key);
@@ -528,13 +627,14 @@ void llua_push_object(lua_State *L, void *value) {
     } else
     if (value_is_bool(value)) {
         lua_pushboolean(L,value_as_bool(value));
-    }  else { // _probably_ a string ;)
+    }  else { // _probably_ a string. You have been warned...
         lua_pushstring(L,(const char*)value);
     }
 }
 
 /// set value using integer key.
 // uses `llua_push_object`
+// @within GettingAndSetting
 void llua_seti(llua_t *o, int key, void *value) {
     lua_State *L = llua_push(o);
     lua_pushinteger(L,key);
@@ -543,6 +643,7 @@ void llua_seti(llua_t *o, int key, void *value) {
 }
 /// set value using integer key.
 // uses `llua_push_object`
+// @within GettingAndSetting
 void llua_sets(llua_t *o, const char *key, void *value) {
     lua_State *L = llua_push(o);
     llua_push_object(L,value);
@@ -554,6 +655,7 @@ void llua_sets(llua_t *o, const char *key, void *value) {
 
 /// set multiple keys and values on the reference.
 // uses type specifiers like `llua_callf`
+// @within GettingAndSetting
 err_t llua_sets_v(llua_t *o, const char *key,...) {
     lua_State *L = llua_push(o);
     const char *fmt;
@@ -586,6 +688,7 @@ err_t llua_sets_v(llua_t *o, const char *key,...) {
 
 /// load and evaluate an expression.
 // `fret` is a type specifier for the result, like `llua_callf`.
+// @within LoadingAndEvaluating
 void *llua_eval(lua_State *L, const char *expr, const char *fret) {
     llua_t *chunk = llua_load(L,expr,"tmp");
     if (value_is_error(chunk)) // compile failed...
@@ -598,6 +701,7 @@ void *llua_eval(lua_State *L, const char *expr, const char *fret) {
 /// load and evaluate a file in an environment
 // `env` may be NULL.
 // `fret` is a type specifier for the result, like `llua_callf`.
+// @within LoadingAndEvaluating
 void *llua_evalfile(lua_State *L, const char *file, const char *fret, llua_t *env) {
     llua_t *chunk = llua_loadfile(L,file);
     if (value_is_error(chunk)) // compile failed...

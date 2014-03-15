@@ -19,4 +19,5 @@ default {
     c99.program{'tests',llua,args=ARGS},
     c99.program{'tests-method',llua,args=ARGS},
     c99.program{'file-size',llua,args=ARGS},
+    c99.program{'errors',llua,args=ARGS},
 }

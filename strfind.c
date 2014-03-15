@@ -17,8 +17,13 @@ int main (int argc, char **argv)
 
     // global keys beginning with 's'.
     // note 'v' for 'push value at index'
+    // <any> -> <int> conversions are tolerant, so you get
+    // zero if not an integer, e.g. when nil.  This fits
+    // nicely with what C regards as true/false.
     FOR_TABLE(G) {
-        if (llua_callf(strfind,"vs",L_TKEY,"^s",L_VAL))
+        int i;
+        llua_callf(strfind,"vs",L_TKEY,"^s","i",&i);
+        if (i)
             printf("match %s\n",lua_tostring(L,L_TKEY));
     }
 

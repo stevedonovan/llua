@@ -112,7 +112,7 @@ As a special case, `llua_callf` can call methods. The pseudo-type 'm' means
 
 ```C
     llua_t *out = llua_gets(G,"io.stdout");
-    llua_callf(out,"ms","write","hello dolly!\n","");
+    llua_callf(out,"ms","write","hello dolly!\n",L_NONE);
 
 ```
 
@@ -129,7 +129,7 @@ with `llua_callf`.
     double dv = 23.5;
     err_t *err;
     // load a table...
-    llua_t *res = llua_eval(L,"return {a = 'one', b = 'two', c=66}","r");
+    llua_t *res = llua_eval(L,"return {a = 'one', b = 'two', c=66}",L_VAL);
     err = llua_gets_v(res,
         "a","s",&av,
         "b","s",&bv,
@@ -147,7 +147,7 @@ be non-NULL.
 There is also `llua_geti` and `llua_rawgeti`, which also return objects.
 
 ```C
-    llua_t *res = llua_eval(L,"return {10,20,30}","r");
+    llua_t *res = llua_eval(L,"return {10,20,30}",L_VAL);
     void *obj = llua_geti(res,1);  // always returns an object
     if (value_is_float(obj))   // paranoid!
         printf("value was %f\n",value_as_float(obj)); // unbox
@@ -169,7 +169,8 @@ you may force the return type with a type specifier after 'r'.
 
 ```
  int* arr = llua_eval(L,"return {10,20,30}","rI");
- ```
+
+```
 
 Trying to index a non-indexable object will cause a Lua panic, so `llua_gettable` and
 `llua_settable` are defined so you can program defensively.
@@ -180,11 +181,14 @@ have to look it up each time.  So llua provides a `FOR_TABLE` macro:
 
 ```C
     FOR_TABLE(G) { // all table keys matching "^s"
-        if (llua_callf(strfind,"vs",L_TKEY,"^s",L_VAL))
+        void *obj = llua_callf(strfind,"vs",L_TKEY,"^s",L_VAL);
+        if (obj)
             printf("match %s\n",lua_tostring(L,L_TKEY));
     }
 ```
 
 Like the explicit version, this requires stack discipline!  L_TKEY is (-2) and
-L_TVAL is (-1).  If you do need to break out of this loop, use the `llua_table_break`
+L_TVAL is (-1); the 'v' type specifier expects a stack index.
+
+If you do need to break out of this loop, use the `llua_table_break`
 macro which does the necessary key-popping.

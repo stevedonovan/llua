@@ -13,7 +13,7 @@ LINK=$(LUALIB) -L. -lllua -Wl,-s
 OBJS=llua.o llib/obj.o llib/value.o llib/pool.o
 LLUA=libllua.a
 
-all: $(LLUA) test-llua strfind tests tests-method file-size
+all: $(LLUA) test-llua strfind tests tests-method file-size errors
 
 clean:
 	rm *.o *.a
@@ -35,3 +35,6 @@ tests-method: tests-method.o $(LLUA)
 
 file-size: file-size.o $(LLUA)
 	$(CC) file-size.o -o file-size $(LINK)
+
+errors: errors.o $(LLUA)
+	$(CC) errors.o -o errors $(LINK)
