@@ -1,14 +1,11 @@
-/*
-* llua higher-level C Lua API
-* BSD licence
-* Copyright Steve Donovan, 2014
-*/
-
 /***
 llua provides a higher-level way to integrate Lua into C projects,
 by defining reference objects and providing operations like calling,
 accessing, etc on them.  Most explicit manipulation of the Lua
 stack becomes unnecessary.
+
+@license BSD
+@copyright Steve Donovan,2014
 */
 
 #include <stdio.h>
