@@ -62,7 +62,6 @@ specifier 'L' will force all Lua values (including strings) to be reference
 objects. Once you have the string reference, `llua_tostring` gives you
 the managed pointer and `llua_len` gives you its actual length.
 
-
 ## Calling Lua Functions
 
 llua conceals tedious and error-prone Lua stack operations when calling
@@ -182,8 +181,10 @@ have to look it up each time.  So llua provides a `FOR_TABLE` macro:
 ```C
     FOR_TABLE(G) { // all table keys matching "^s"
         void *obj = llua_callf(strfind,"vs",L_TKEY,"^s",L_VAL);
-        if (obj)
+        if (obj) {
             printf("match %s\n",lua_tostring(L,L_TKEY));
+            unref(obj);  
+        }
     }
 ```
 
@@ -192,3 +193,204 @@ L_TVAL is (-1); the 'v' type specifier expects a stack index.
 
 If you do need to break out of this loop, use the `llua_table_break`
 macro which does the necessary key-popping.
+
+## Error Handling
+
+Generally, all llua functions which can return an object, can also return an error; 
+llib's `value_is_error` can distinguish between error strings and any other object, 
+including plain strings.  We can do this because all results are llib objects and 
+have dynamic type information, which provides an elegant solution to the old
+"return value or error" problem with C.  (These runtime checks are pretty fast
+since the type infomation is part of the hidden object header.)
+
+Scalar values like ints and floats will also be returned this way, as llib 'boxed'
+values (check with `value_is_int`, unbox with `value_as_int`, etc.)  This is
+not so convenient, hence llua's use of scanf-like type specifiers with variables.
+
+Lua has a common idiom, where normally a function will return one value, 
+or `nil` plus an error string.  The `llua_callf` return type `L_ERR` makes this into
+a single  value, which can be distinguished from an error as above.
+
+However, passing a Lua API or library function a wrong parameter will result
+in an error being raised.  For instance, trying to index a number, or call a `nil`
+value.  So `llua_gets*` will not return an error in this case; you should query 
+`llua_gettable(o)` first.  This is true if the object was a table or something with an
+`__index` metamethod.  (It would be too expensive to do this check each time.)
+So then you need the C equivalent of Lua's protected function calls:
+
+```C
+int l_myfun(lua_State *L) {
+    const char *sval;
+    llua_t *r;
+    lua_pushnil(L);
+    r = llua_new(L,-1);
+    sval = llua_gets(r,"woop");
+    printf("got '%s'\n",sval);
+    return 0;
+}
+
+.....
+    llua_t  *myfun = llua_cfunction(L,l_myfun);
+    err_t res = llua_callf(myfun,L_NONE,L_VAL);
+    if (res) {
+        fprintf(stderr,"failed: %s\n",res);
+    }
+    --> failed: attempt to index a nil value
+```
+
+Note that `l_myfun` doesn't return any value, so `llua_callf` only returns non-nil
+when there's an error.
+
+However, if we tried to call the `nil` reference `r` above with `llua_callf`, no
+error will be raised, since it does a protected call.  You can use the following form
+to raise the error:
+
+```C
+    // make 'calling a nil value' a fatal error
+    void *val = llua_call_or_die(r,L_NONE,L_VAL);
+    ...
+    // ---> failed errors.c:23: attempt to call a nil value
+```
+
+This is a macro built on `llua_assert(L,val)` which you can generally use for
+converting error values into raised errors.  (Like the C macro `assert`, it adds
+file:line information)
+
+There is yet another mechanism that forces returned errors into raised errors.
+If a llua reference has its `error` field set, then any operation involving it will 
+raise an error. So an alternative way of doing the last operation would be:
+
+```C
+    llua_set_error(r,true);
+    void *val = llua_callf(r,L_NONE,L_VAL);
+
+```
+The error message won't be so pretty, however.  (I apologize for providing
+several mechanisms for achieving the same result; in the early days
+of experimenting with a library interface it's useful to present alternatives.)
+
+This is useful if you're found of exception handling as a strategy to separate
+'normal' program flow from error handling.  Consider the case of reading a 
+configuration file. All the straightforward business of loading and querying
+happens in a protected call:
+
+```C
+typedef struct {
+    int alpha;
+    double beta;
+    char *address;
+    int *ports;    
+} Config;
+
+int parse_config (lua_State *L) {
+    llua_t *env;
+    Config *c = malloc(sizeof(Config));
+    c->address = "127.0.0.1";
+    
+    env = llua_newtable(L);
+    llua_set_error(env,true);   // <--- any op on 'env' will raise an error, not just return it
+    llua_evalfile(L,"config.lua","",env);
+
+     llua_gets_v(env,
+        "alpha","i",&c->alpha,
+        "beta","f",&c->beta,
+        "address","?s",&c->address, // ? means use existing value as default!
+        "ports","I",&c->ports, // big 'I' means 'array of int'
+    NULL);
+    
+    unref(env); // don't need it any more...
+
+    lua_pushlightuserdata(L,c);
+    return 1;
+}
+
+```
+
+And the error handling then becomes centralized:
+
+```C
+    Config* c = llua_callf(llua_cfunction(L,parse_config),L_NONE,L_VAL);
+    if (value_is_error(c)) { // compile, run or bad field error?
+        fprintf(stderr,"could not load config: %s\n",value_as_string(c));
+        return 1;
+    }    
+    
+    printf("got alpha=%d beta=%f address='%s'\n",
+        c->alpha, c->beta,c->address
+    );
+    
+    // note how you get the size of the returned array
+    int *ports = c->ports;
+    printf("ports ");
+    for (int i = 0; i < array_len(ports); i++)
+        printf("%d ",ports[i]);
+    printf("\n");    
+
+```
+
+The point is that both `llua_evalfile` and `llua_gets_v` may throw errors; the first
+if there's an error parsing and executing the configuration, the second
+if a required field is missing or has the wrong type.  For complicated sequences
+of operations, this will give you cleaner code and leave your 'happy path'
+uncluttered.
+
+Please note how easy it is for the protected function to return a pointer as
+'light userdata';  alternatively we could have created the config object and
+passed it as light userdata using the 'p' type specifier, and picked it up as
+`lua_topointer(L,1)` in the protected code.
+
+## Managing References
+
+In the above example, there are two 'reference leaks'; the first comes from
+throwing away the reference to `parse_config` and the second happens when
+an error is raised and `env` is not dereferenced with `unref`.  This is not C++,
+and we don't have any guaranteed cleanup on scope exit!
+
+In this case (once-off reading of configuration file) it's probably no big deal,
+but you do have to manage the lifetime of references in general.
+
+One approach to scope cleanup is to use 'object pools', which is similar to how
+Objective-C manages reference-counting.
+
+```C
+void my_task() {
+    void *P = obj_pool();
+    llua_t *result;
+    
+    //.... many references created
+    result = ref(obj);
+    
+    unref(P); // all references freed, except 'result'
+    return result;
+}
+```
+
+Object pools can be nested (they are implemented as a stack of resizeable
+reference-owning arrays) and they will do the Right Thing.  To make sure
+they don't clean up _everything_, use `ref` to increase the reference count
+of objects you wish to keep - in this case, the result of the function.
+
+If you're using GCC (and compilers which remain GCC-compatible, like Clang
+and later versions of ICC) there is a 'cleanup' attribute which allows us to 
+leave out that explicit 'unref(P)`:
+
+```
+  {
+   scoped void *P = obj_pool();
+   
+   // no unref needed!
+   }
+```
+
+The cool thing is that we then have that favourite feature of C++ programmers:
+the ability to do auto cleanup on a scope level.  This is particularly convenient if
+you like the freedom to do multiple returns from a function and dislike the
+bookkeeping needed to do manual cleanup.  It isn't a C standard, but its wide
+implementation makes it an option for those who can choose their compilers.
+
+(scoped_pool)
+
+A potential problem with relying too heavily on object pools is that you may
+create and destroy many temporary references, which could slow you
+down in critical places.
+

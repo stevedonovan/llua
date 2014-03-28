@@ -20,12 +20,16 @@ int main (int argc, char **argv)
     char *address = "127.0.0.1";
     int *ports;
     
-     llua_gets_v(env,
+     err = llua_gets_v(env,
         "alpha","i",&alpha,
         "beta","f",&beta,
         "address","?s",&address, // ? means use existing value as default!
         "ports","I",&ports, // big 'I' means 'array of int'
     NULL);
+    if (err) { // required field not specified?
+        fprintf(stderr,"config field: %s\n",err);
+        return 1;
+    }
     
     printf("got alpha=%d beta=%f address='%s'\n",
         alpha, beta,address

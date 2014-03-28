@@ -1,0 +1,8 @@
+alpha = 1
+beta = 2
+address = '8.8.8.8'
+ports = {2212,2213}
+A.B = 42
+
+
+

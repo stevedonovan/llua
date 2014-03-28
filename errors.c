@@ -21,6 +21,11 @@ int l_myfun(lua_State *L) {
 
     // make 'calling a nil value' a fatal error
     void *val = llua_call_or_die(r,L_NONE,L_VAL);
+    
+    // alternatively, can make the reference raise errors
+    // (you will not get a nice file:line in the message however)
+    //llua_set_error(r,true);
+    //void *val = llua_callf(r,L_NONE,L_VAL);
 
     return 0;
 }

@@ -36,6 +36,16 @@ void llua_verbose(FILE *f) {
     s_verbose = f;
 }
 
+void llua_set_error(llua_t *o, bool yesno) {
+    o->error = yesno;
+}
+
+const char *llua_error(llua_t *o, const char *msg) {
+    if (! (o && o->error && msg && value_is_error(msg)))
+        return msg;
+    return luaL_error(o->L,msg);
+}
+
 /// is this a Lua reference?
 // @within Properties
 bool llua_is_lua_object(llua_t *o) {
@@ -57,6 +67,7 @@ llua_t *llua_new(lua_State *L, int idx) {
     lua_pushvalue(L,idx);
     res->ref = luaL_ref(L,LUA_REGISTRYINDEX);
     res->type = lua_type(L,idx);
+    res->error = false;
     return res;
 }
 
@@ -114,6 +125,7 @@ void *llua_to_obj(lua_State *L, int idx) {
     case LUA_TNUMBER: return value_float(lua_tonumber(L,idx));
     case LUA_TBOOLEAN: return value_bool(lua_toboolean(L,idx));
     case LUA_TSTRING: return string_copy(L,idx);
+    case LUA_TLIGHTUSERDATA: return lua_topointer(L,idx);
     default:
         return llua_new(L,idx);
      //LUA_TTABLE, LUA_TFUNCTION, LUA_TUSERDATA, LUA_TTHREAD, and LUA_TLIGHTUSERDATA.
@@ -308,7 +320,14 @@ err_t llua_convert(lua_State *L, char kind, void *P, int idx) {
     default:
       break;
     }
-    return err ? value_error(err) : NULL;
+    if (err) {
+        if (lua_isnil(L,idx))
+            err = "was nil";
+        return value_error(err);
+    } else {
+        return NULL;
+    }
+    
 }
 
 static err_t push_value(lua_State *L, char kind, void *data) {
@@ -321,6 +340,9 @@ static err_t push_value(lua_State *L, char kind, void *data) {
         break;
     case 'x': // usually possible to do this cast
         lua_pushcfunction(L,(lua_CFunction)data);
+        break;
+    case 'p':
+        lua_pushlightuserdata(L,data);
         break;
     default:
         return value_error("unknown type");
@@ -381,7 +403,7 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
         default:
             res = push_value(L,*fmt, va_arg(ap,void*));
             if (res)
-                return (void*)res;
+                return (void*)llua_error(o,res);
             break;
         }
         ++fmt;
@@ -399,7 +421,7 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
         res = l_error(L);
     }
     if (nres == LUA_MULTRET || res != NULL) { // leave results on stack, or error!
-        return (void*)res;
+        return (void*)llua_error(o,res);
     } else
     if (*fmt == 'r') { // return one value as object...
         if (rtype == 'E') {
@@ -417,7 +439,7 @@ void *llua_callf(llua_t *o, const char *fmt,...) {
             res = llua_convert(L,rtype,&value,-1);
             lua_pop(L,1);
             if (res) // failed...
-                return (void*)res;
+                return (void*)llua_error(o,res);
             else
                 return value;
         } else {
@@ -577,13 +599,17 @@ err_t llua_gets_v(llua_t *o, const char *key,...) {
             err = llua_convert(L,*fmt,P,-1);
         lua_pop(L,1);
         if (err) {
+            char buff[256];
+            snprintf(buff,sizeof(buff),"field '%s': %s",key,err);
+            unref(err);
+            err = value_error(buff);
             break;
         }
         key = va_arg(ap,const char*);
     }
     va_end(ap);
     lua_pop(L,1); // the reference
-    return err;
+    return llua_error(o,err);
 }
 
 /// index the reference with an integer key.
@@ -680,7 +706,7 @@ err_t llua_sets_v(llua_t *o, const char *key,...) {
     }
     va_end(ap);
     lua_pop(L,1); // the reference
-    return err;
+    return llua_error(o,err);
 }
 
 /// load and evaluate an expression.
@@ -702,7 +728,7 @@ void *llua_eval(lua_State *L, const char *expr, const char *fret) {
 void *llua_evalfile(lua_State *L, const char *file, const char *fret, llua_t *env) {
     llua_t *chunk = llua_loadfile(L,file);
     if (value_is_error(chunk)) // compile failed...
-        return chunk;
+        return llua_error(env,(err_t)chunk);
     if (env) {
         llua_push(chunk);
         llua_push(env);
@@ -716,6 +742,7 @@ void *llua_evalfile(lua_State *L, const char *file, const char *fret, llua_t *en
     }
     void *res = llua_callf(chunk,"",fret);
     obj_unref(chunk);
-    return res;
+    return (void*) llua_error(env,res);
 }
+
 

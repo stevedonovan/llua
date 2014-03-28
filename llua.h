@@ -14,6 +14,7 @@ typedef struct LLua_ {
     lua_State *L;
     int ref;
     int type;
+    bool error;
 } llua_t;
 
 // useful names for common function returns
@@ -34,9 +35,12 @@ typedef struct LLua_ {
 void *_llua_assert(lua_State *L, const char *file, int line, void *val);
 
 #define llua_call_or_die(r,...) llua_assert((r)->L,llua_callf(r,__VA_ARGS__))
+#define llua_eval_or_die(L,txt,ret) llua_assert(L,llua_eval(L,txt,ret))
 
 llua_t *llua_new(lua_State *L, int idx);
 void llua_verbose(FILE *f);
+void llua_set_error(llua_t *o, bool yesno);
+const char *llua_error(llua_t *o, const char *msg);
 bool llua_is_lua_object(llua_t *o);
 llua_t* llua_global(lua_State *L);
 void *llua_to_obj(lua_State *L, int idx);
