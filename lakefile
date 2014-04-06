@@ -20,4 +20,7 @@ default {
     c99.program{'tests-method',llua,args=ARGS},
     c99.program{'file-size',llua,args=ARGS},
     c99.program{'errors',llua,args=ARGS},
+	c99.program{'read-config',llua,args=ARGS},
+	c99.program{'read-config-err',llua,args=ARGS},
+	c99.program{'llib-llua',llua,args=ARGS},
 }

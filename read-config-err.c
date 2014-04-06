@@ -12,6 +12,7 @@
     if we blow up.  Not a major problem for this once-off task.
 */
 #include <stdio.h>
+#include <stdlib.h>
 #include "llua.h"
 
 typedef struct {
@@ -77,7 +78,7 @@ bool handle_config(lua_State *L) {
 int main (int argc, char **argv)
 {
     lua_State *L = luaL_newstate();
-     luaL_openlibs(L);
+    luaL_openlibs(L);
     handle_config(L);
     lua_close(L);
     return 0;
